@@ -1,5 +1,8 @@
 import numpy as np
 import random
+from pyvis.network import Network
+import webbrowser
+
 
 class AntNet:
     def __init__(self, graph, num_ants, alpha=2, beta=2, evaporation_rate=0.5, iterations=100, exploration_prob=0.1):
@@ -24,7 +27,7 @@ class AntNet:
         return 1 / (distance + epsilon)
 
     def probabilistic_choice(self, node, unvisited):
-        """Select next node probabilistically, with a chance for exploration."""
+        """Select next node probabilistically,with a chance for exploration."""
         probabilities = []
         for neighbor in unvisited:
             if self.graph[node][neighbor] == 0:
@@ -94,6 +97,49 @@ class AntNet:
 
         return self.best_path, self.best_cost
 
+    def visualize_graph(self, show_route=True):
+        net = Network(height='750px', width='100%', bgcolor='#222222', font_color='white')
+        net.barnes_hut()
+        if self.best_path:
+            edges_to_highlight = [(self.best_path[i], self.best_path[i + 1]) for i in range(len(self.best_path) - 1)]
+        else:
+            print("No current best path to visualize")
+            show_route = False
+
+        # Add all nodes
+        for i in range(len(self.graph)):
+            net.add_node(i, label=f"Node {i}", font={"size": 12}, size=10)
+
+        # Add all edges
+        for i, node in enumerate(self.graph):
+            for j, weight in enumerate(node):
+                if not weight:
+                    continue
+                if show_route and (i, j) in edges_to_highlight:
+                    net.add_edge(i, j, weight=weight, color='red', title=f"Weight: {weight}")
+                    continue
+                net.add_edge(i, j, value=weight, title=f"Weight: {weight}", length=300)
+
+        # Finicky options to tweak
+        net.set_options("""
+        {
+          "nodes": {
+            "font": {
+              "size": 12,
+              "face": "arial",
+              "align": "center"
+            }
+          },
+          "interaction": {
+            "hideEdgesOnZoom": false,
+            "hideNodesOnZoom": false
+          }
+        }
+        """)
+
+        net.save_graph("network.html")
+        webbrowser.open('network.html')
+
 
 # Example Usage:
 if __name__ == "__main__":
@@ -116,3 +162,5 @@ if __name__ == "__main__":
 
     print("\nBest Path:", best_path)
     print("Best Cost:", best_cost)
+
+    ant_net.visualize_graph()
