@@ -1,5 +1,9 @@
 import numpy as np
 import random
+from pyvis.network import Network
+import webbrowser
+import networkx as nx
+
 
 class AntNet:
     def __init__(self, graph, num_ants, alpha=2, beta=2, evaporation_rate=0.5, iterations=100, exploration_prob=0.1):
@@ -24,7 +28,7 @@ class AntNet:
         return 1 / (distance + epsilon)
 
     def probabilistic_choice(self, node, unvisited):
-        """Select next node probabilistically, with a chance for exploration."""
+        """Select next node probabilistically,with a chance for exploration."""
         probabilities = []
         for neighbor in unvisited:
             if self.graph[node][neighbor] == 0:
@@ -94,6 +98,79 @@ class AntNet:
 
         return self.best_path, self.best_cost
 
+    def visualize_graph(self, show_route=True):
+        net = Network(height='750px', width='100%', bgcolor='#222222', font_color='white')
+        net.barnes_hut()
+        if self.best_path:
+            edges_to_highlight = [(self.best_path[i], self.best_path[i + 1]) for i in range(len(self.best_path) - 1)]
+        else:
+            print("No current best path to visualize")
+            show_route = False
+
+        # Add all nodes
+        for i in range(len(self.graph)):
+            net.add_node(i, label=f"Node {i}", font={"size": 12}, size=10)
+
+        # Add all edges
+        for i, node in enumerate(self.graph):
+            for j, weight in enumerate(node):
+                if not weight or (i, j) in net.edges or (j, i) in net.edges:
+                    continue
+                if show_route and ((i, j) in edges_to_highlight or (j, i) in edges_to_highlight):
+                    net.add_edge(i, j, weight=weight, color='red', title=f"Weight: {weight}")
+                    continue
+                net.add_edge(i, j, value=weight, title=f"Weight: {weight}", length=300)
+
+        # Finicky options to tweak
+        net.set_options("""
+        {
+          "nodes": {
+            "font": {
+              "size": 12,
+              "face": "arial",
+              "align": "center"
+            }
+          },
+          "interaction": {
+            "hideEdgesOnZoom": false,
+            "hideNodesOnZoom": false
+          }
+        }
+        """)
+
+        net.save_graph("network.html")
+        webbrowser.open('network.html')
+
+
+def create_random_graph(n, weight_range=(1, 10), edge_probability=0.3):
+    """
+    Creates a random undirected graph with n nodes. G is a NetworkX Graph object. Returns its adjacency list.
+
+    Parameters:
+    - n: Number of nodes.
+    - weight_range: Tuple indicating the range of edge weights (inclusive).
+    - edge_probability: Probability of an edge existing between any two nodes.
+
+    Returns:
+    - adj_matrix: A 2D list representing the adjacency matrix.
+    """
+    G = nx.Graph()  # Initialize an undirected graph
+
+    # Add nodes
+    for i in range(n):
+        G.add_node(i)
+
+    # Add edges with random weights
+    for i in range(n):
+        for j in range(i + 1, n):  # Avoid duplicate edges
+            if random.random() < edge_probability:
+                weight = random.randint(*weight_range)
+                G.add_edge(i, j, weight=weight)
+
+   # Convert to numpy array
+    adj_matrix = nx.to_numpy_array(G, weight='weight')  # Include edge weights
+    return adj_matrix.tolist()
+
 
 # Example Usage:
 if __name__ == "__main__":
@@ -109,6 +186,11 @@ if __name__ == "__main__":
         [0, 0, 0, 4, 9, 5, 1, 0],  # Node 7, removed direct path from node 0
     ]
 
+    use_random_graph = True
+
+    # Generate a random graph with 8 nodes
+    n_nodes = 8 # From testing, this works up to about 50 nodes
+    graph = create_random_graph(n_nodes, weight_range=(1, 20), edge_probability=0.4) if use_random_graph else graph
     ant_net = AntNet(graph, num_ants=15, alpha=2, beta=2, evaporation_rate=0.5, iterations=100, exploration_prob=0.15)
     start_node = 0
     end_node = 7
@@ -116,3 +198,5 @@ if __name__ == "__main__":
 
     print("\nBest Path:", best_path)
     print("Best Cost:", best_cost)
+
+    ant_net.visualize_graph()
