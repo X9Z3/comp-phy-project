@@ -1,5 +1,8 @@
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import random
+
 
 class AntNet:
     def __init__(self, graph, num_ants, alpha=2, beta=2, evaporation_rate=0.5, iterations=100, exploration_prob=0.1):
@@ -24,7 +27,7 @@ class AntNet:
         return 1 / (distance + epsilon)
 
     def probabilistic_choice(self, node, unvisited):
-        """Select next node probabilistically, with a chance for exploration."""
+        """Select next node probabilistically,with a chance for exploration."""
         probabilities = []
         for neighbor in unvisited:
             if self.graph[node][neighbor] == 0:
@@ -94,6 +97,83 @@ class AntNet:
 
         return self.best_path, self.best_cost
 
+    def visualize_graph(self, show_route=True):
+        if self.best_path:
+            edges_to_highlight = [(self.best_path[i], self.best_path[i + 1]) if self.best_path[i] < self.best_path[i + 1] else (self.best_path[i + 1], self.best_path[i]) for i in range(len(self.best_path) - 1)]
+        else:
+            print("No current best path to visualize.")
+            show_route = False
+
+        # Adjacency matrix to numpy array to NetworkX graph
+        graph_x = nx.from_numpy_array(np.array(self.graph))
+
+        # Not all graphs can be drawn planar, but if it can, then use that positional layout
+        if nx.is_planar(graph_x):
+            pos = nx.planar_layout(graph_x)
+        else:
+            pos = nx.spring_layout(graph_x)
+
+        # Specify custom colors for nodes and edges
+        if show_route:
+            node_colors = ['red' if node in self.best_path else 'blue' for node in graph_x.nodes()]
+            edge_colors = ['red' if edge in edges_to_highlight else 'gray' for edge in graph_x.edges()]
+        else:
+            node_colors = ['blue'] * self.num_nodes
+            edge_colors = ['gray'] * self.num_nodes
+
+        # Extract weights and scale them for line thickness
+        edge_weights = [graph_x[u][v]['weight'] for u, v in graph_x.edges()]
+        edge_thickness = [1 + 5 * weight / max(edge_weights) for weight in edge_weights]  # Scaled thickness
+
+        # Draw the graph
+        nx.draw(
+            graph_x,
+            pos,
+            with_labels=True,
+            node_color=node_colors,
+            edge_color=edge_colors,
+            node_size=50,
+            font_color='white',
+            font_weight='bold',
+            width=edge_thickness
+        )
+
+        plt.show()
+        dijkstra_path = nx.dijkstra_path(graph_x, source=0, target=7)
+        dijkstra_cost = nx.path_weight(graph_x, dijkstra_path, 'weight')
+        print(f'Dijkstra shortest path: {dijkstra_path}')
+        print(f'Dijkstra path cost: {dijkstra_cost}')
+
+
+def create_random_graph(n, weight_range=(1, 10), edge_probability=0.3):
+    """
+    Creates a random undirected graph with n nodes. G is a NetworkX Graph object. Returns its adjacency list.
+
+    Parameters:
+    - n: Number of nodes.
+    - weight_range: Tuple indicating the range of edge weights (inclusive).
+    - edge_probability: Probability of an edge existing between any two nodes.
+
+    Returns:
+    - adj_matrix: A 2D list representing the adjacency matrix.
+    """
+    G = nx.Graph()  # Initialize an undirected graph
+
+    # Add nodes
+    for i in range(n):
+        G.add_node(i)
+
+    # Add edges with random weights
+    for i in range(n):
+        for j in range(i + 1, n):  # Avoid duplicate edges
+            if random.random() < edge_probability:
+                weight = random.randint(*weight_range)
+                G.add_edge(i, j, weight=weight)
+
+   # Convert to numpy array
+    adj_matrix = nx.to_numpy_array(G, weight='weight')  # Include edge weights
+    return adj_matrix.tolist()
+
 
 # Example Usage:
 if __name__ == "__main__":
@@ -109,6 +189,11 @@ if __name__ == "__main__":
         [0, 0, 0, 4, 9, 5, 1, 0],  # Node 7, removed direct path from node 0
     ]
 
+    use_random_graph = True
+
+    # Generate a random graph with 8 nodes
+    n_nodes = 2000 # Takes a pinch but works with 2000+ nodes
+    graph = create_random_graph(n_nodes, weight_range=(1, 20), edge_probability=0.005) if use_random_graph else graph
     ant_net = AntNet(graph, num_ants=15, alpha=2, beta=2, evaporation_rate=0.5, iterations=100, exploration_prob=0.15)
     start_node = 0
     end_node = 7
@@ -116,3 +201,5 @@ if __name__ == "__main__":
 
     print("\nBest Path:", best_path)
     print("Best Cost:", best_cost)
+
+    ant_net.visualize_graph()
